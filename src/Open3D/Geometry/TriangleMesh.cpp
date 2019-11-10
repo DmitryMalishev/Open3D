@@ -36,6 +36,7 @@
 #include <queue>
 #include <random>
 #include <tuple>
+#include <map>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -1459,6 +1460,125 @@ void TriangleMesh::RemoveTrianglesByMask(
     if (has_tri_normal) {
         triangle_normals_.resize(to_tidx);
     }
+}
+
+bool FindNeighbors(geometry::TriangleMesh &mesh, std::set<unsigned int> &list, int vec_num)
+{
+    Eigen::Vector3d color = mesh.vertex_colors_[vec_num];
+    bool found_one_neighbour = false;
+
+    // iterate over all triangles to find ones containing current vertex
+    for (int i = 0; i < (int)mesh.triangles_.size(); i++)
+    {
+        int neighbour1_found = -1;
+        int neighbour2_found = -1;
+        Eigen::Vector3i tri = mesh.triangles_[i];
+
+        // first, check if the vertex belongs to the triangle
+        // second, check if it's neighbors are of the same color
+        if (tri[0] == vec_num)
+        {
+            if (mesh.vertex_colors_[tri[1]] == color)
+            {
+                neighbour1_found = tri[1];
+            }
+            if (mesh.vertex_colors_[tri[2]] == color)
+            {
+                neighbour2_found = tri[2];
+            }
+        }
+        else if (tri[1] == vec_num)
+        {
+            if (mesh.vertex_colors_[tri[0]] == color)
+            {
+                neighbour1_found = tri[0];
+            }
+            if (mesh.vertex_colors_[tri[2]] == color)
+            {
+                neighbour2_found = tri[2];
+            }
+        }
+        else if (tri[2] == vec_num)
+        {
+            if (mesh.vertex_colors_[tri[0]] == color)
+            {
+                neighbour1_found = tri[0];
+            }
+            if (mesh.vertex_colors_[tri[1]] == color)
+            {
+                neighbour2_found = tri[1];
+            }
+        }
+
+        // adding matched neighbors if they are not in the list yet
+        if (neighbour1_found != -1)
+        {
+            if (std::find(list.begin(), list.end(), neighbour1_found) == list.end())
+            {
+                list.insert(neighbour1_found);
+                found_one_neighbour = true;
+                FindNeighbors(mesh, list, neighbour1_found);
+            }
+        }
+        if (neighbour2_found != -1)
+        {
+            if (std::find(list.begin(), list.end(), neighbour2_found) == list.end())
+            {
+                list.insert(neighbour2_found);
+                found_one_neighbour = true;
+                FindNeighbors(mesh, list, neighbour2_found);
+            }
+        }
+    }
+
+    if (!found_one_neighbour)
+    {
+        // orphan-vertex (no neighbors of the same color)
+        list.insert(vec_num);
+    }
+
+    return true;
+}
+
+std::list<std::list<unsigned int>> TriangleMesh::IdenticallyColoredConnectedComponents()
+{
+    // resulting data type is "friendly" with Python's types
+    std::list<std::list<unsigned int>> result;
+
+    std::multimap<unsigned int, std::set<unsigned int>> sorted_components;
+    for (size_t i = 0; i < vertices_.size(); i++) {
+
+        // find component for a vertex
+        // NB: optimization possible here: do not find components for a vertex
+        //  if it's already in the previously found components
+        std::set<unsigned int> list;
+        FindNeighbors((geometry::TriangleMesh &)*this, list, i);
+
+        // check if found component is not already in the list
+        // NB: optimization possible here
+        bool already_in_list = false;
+        for (auto it = sorted_components.begin(); it != sorted_components.end(); it++) {
+            if (it->second == list) {
+                already_in_list = true;
+                break;
+            }
+        }
+
+        if (!already_in_list) {
+            sorted_components.insert({ *list.begin(), list });
+        }
+    }
+
+    // copy resulting components to the output
+    for (auto it = sorted_components.begin(); it != sorted_components.end(); it++) {
+        std::list<unsigned int> list1;
+        for (auto it1 = it->second.begin(); it1 != it->second.end(); it1++) {
+            list1.push_back(*it1);
+        }
+        result.push_back(list1);
+    }
+
+    return result;
 }
 
 }  // namespace geometry

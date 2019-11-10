@@ -32,6 +32,8 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+#include <list>
+#include <set>
 
 #include "Open3D/Geometry/Image.h"
 #include "Open3D/Geometry/MeshBase.h"
@@ -240,6 +242,8 @@ public:
                        std::vector<int>,
                        utility::hash_eigen::hash<Eigen::Vector2i>>
     GetEdgeToTrianglesMap() const;
+
+    std::list<std::list<unsigned int>> IdenticallyColoredConnectedComponents();
 
     /// Function that computes the area of a mesh triangle
     static double ComputeTriangleArea(const Eigen::Vector3d &p0,

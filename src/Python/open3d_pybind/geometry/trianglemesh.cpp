@@ -293,6 +293,9 @@ void pybind_trianglemesh(py::module &m) {
                  "set to true.  Call remove_unreferenced_vertices to clean up "
                  "vertices afterwards.",
                  "triangle_mask"_a)
+            .def("identically_colored_connected_components",
+                &geometry::TriangleMesh::IdenticallyColoredConnectedComponents,
+                "This function extracts components from mesh of same color.")
             .def_static(
                     "create_from_point_cloud_ball_pivoting",
                     &geometry::TriangleMesh::CreateFromPointCloudBallPivoting,
